@@ -29,6 +29,7 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,6 +61,7 @@ public class QRScanner extends CordovaPlugin implements BarcodeCallback {
     private boolean oneTime = true;
     private boolean keepDenied = false;
     private boolean appPausedWithActivePreview = false;
+    private ArrayList<BarcodeFormat> formatList = new ArrayList<BarcodeFormat>(Arrays.asList(BarcodeFormat.QR_CODE));
     
     static class QRScannerError {
         private static final int UNEXPECTED_ERROR = 0,
@@ -72,6 +74,78 @@ public class QRScanner extends CordovaPlugin implements BarcodeCallback {
                 LIGHT_UNAVAILABLE = 7,
                 OPEN_SETTINGS_UNAVAILABLE = 8;
     }
+
+private void configure(Object options) {
+        if (options instanceof JSONObject) {
+            JSONObject opt = (JSONObject) options;
+            if (opt.has("formats")) {
+                try {
+                    JSONArray formats = opt.getJSONArray("formats");
+                    ArrayList<BarcodeFormat> newFormats = new ArrayList<>();
+
+                    for (int i = 0; i < formats.length(); i++) {
+                        String format = formats.getString(i);
+                        switch (format) {
+                            case "QR_CODE":
+                                newFormats.add(BarcodeFormat.QR_CODE);
+                                break;
+
+                            case "DATA_MATRIX":
+                                newFormats.add(BarcodeFormat.DATA_MATRIX);
+                                break;
+
+                            case "UPC_E":
+                                newFormats.add(BarcodeFormat.UPC_E);
+                                break;
+
+                            case "EAN_8":
+                                newFormats.add(BarcodeFormat.EAN_8);
+                                break;
+
+                            case "EAN_13":
+                                newFormats.add(BarcodeFormat.EAN_13);
+                                break;
+
+                            case "CODE_39":
+                                newFormats.add(BarcodeFormat.CODE_39);
+                                break;
+
+                            case "CODE_93":
+                                newFormats.add(BarcodeFormat.CODE_93);
+                                break;
+
+                            case "CODE_128":
+                                newFormats.add(BarcodeFormat.CODE_128);
+                                break;
+
+                            case "ITF":
+                                newFormats.add(BarcodeFormat.ITF);
+                                break;
+
+                            case "PDF_417":
+                                newFormats.add(BarcodeFormat.PDF_417);
+                                break;
+
+                            case "AZTEC":
+                                newFormats.add(BarcodeFormat.AZTEC);
+                                break;
+                        }
+                    }
+                    formatList = newFormats;
+                } catch (Exception e) {
+                    //ignore
+                }
+            }
+
+            if (opt.has("camera")) {
+                try {
+                    currentCameraId = opt.getInt("camera");
+                } catch (JSONException ignored) {
+                }
+            }
+        }
+    }
+
 
     @Override
     public boolean execute(final String action, final JSONArray args, final CallbackContext callbackContext) throws JSONException {
@@ -86,6 +160,7 @@ public class QRScanner extends CordovaPlugin implements BarcodeCallback {
                 return true;
             }
             else if(action.equals("scan")) {
+                if (args.length() > 0) configure(args.get(0));
                 cordova.getThreadPool().execute(new Runnable() {
                     public void run() {
                         scan(callbackContext);
@@ -180,15 +255,12 @@ public class QRScanner extends CordovaPlugin implements BarcodeCallback {
                 return true;
             }
             else if (action.equals("prepare")) {
+                if (args.length() > 0) configure(args.get(0));
                 cordova.getThreadPool().execute(new Runnable() {
                     public void run() {
                         cordova.getActivity().runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                try {
-                                    currentCameraId = args.getInt(0);
-                                } catch (JSONException e) {
-                                }
                                 prepare(callbackContext);
                             }
                         });
@@ -453,9 +525,6 @@ public class QRScanner extends CordovaPlugin implements BarcodeCallback {
                 // Create our Preview view and set it as the content of our activity.
                 mBarcodeView = new BarcodeView(cordova.getActivity());
 
-                //Configure the decoder
-                ArrayList<BarcodeFormat> formatList = new ArrayList<BarcodeFormat>();
-                formatList.add(BarcodeFormat.QR_CODE);
                 mBarcodeView.setDecoderFactory(new DefaultDecoderFactory(formatList, null, null));
 
                 //Configure the camera (front/back)
@@ -474,8 +543,7 @@ public class QRScanner extends CordovaPlugin implements BarcodeCallback {
         });
         prepared = true;
         previewing = true;
-        if(shouldScanAgain)
-            scan(callbackContext);
+        if(shouldScanAgain) scan(callbackContext);
 
     }
 
@@ -788,6 +856,7 @@ public class QRScanner extends CordovaPlugin implements BarcodeCallback {
         }
         closeCamera();
         currentCameraId = 0;
+        formatList = new ArrayList<BarcodeFormat>(Arrays.asList(BarcodeFormat.QR_CODE));
         getStatus(callbackContext);
     }
 }
